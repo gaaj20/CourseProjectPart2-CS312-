@@ -1,0 +1,14 @@
+---
+- name: Configure and deploy Minecraft server
+  hosts: minecraft
+  become: true
+  vars:
+    minecraft_version: "1.21.1"
+    minecraft_dir: /opt/minecraft
+    minecraft_user: minecraft
+    minecraft_jar: "server.jar"
+    java_xmx: "2G"
+    java_xms: "1G"
+
+  roles:
+    - minecraft

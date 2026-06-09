@@ -1,0 +1,35 @@
+[Unit]
+Description=Minecraft Java Edition Server {{ minecraft_version }}
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ minecraft_user }}
+WorkingDirectory={{ minecraft_dir }}
+
+# Start the server
+ExecStart=/usr/bin/java \
+    -Xmx{{ java_xmx }} \
+    -Xms{{ java_xms }} \
+    -XX:+UseG1GC \
+    -XX:+ParallelRefProcEnabled \
+    -XX:MaxGCPauseMillis=200 \
+    -jar {{ minecraft_dir }}/{{ minecraft_jar }} nogui
+
+# Graceful stop: send 'stop' to stdin, then wait up to 60 s before SIGTERM
+ExecStop=/bin/sh -c 'kill -s SIGTERM $MAINPID'
+KillMode=control-group
+KillSignal=SIGTERM
+TimeoutStopSec=60
+
+# Restart on crash/unexpected exit, but not on clean stop
+Restart=on-failure
+RestartSec=10s
+
+# Hardening
+PrivateTmp=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

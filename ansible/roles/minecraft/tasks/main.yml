@@ -1,0 +1,73 @@
+---
+# tasks/main.yml — Minecraft server role
+
+- name: Install Java 21 (Amazon Corretto)
+  ansible.builtin.dnf:
+    name: java-21-amazon-corretto-headless
+    state: present
+
+- name: Create minecraft system user
+  ansible.builtin.user:
+    name: "{{ minecraft_user }}"
+    system: true
+    shell: /sbin/nologin
+    home: "{{ minecraft_dir }}"
+    create_home: true
+
+- name: Ensure minecraft directory exists with correct ownership
+  ansible.builtin.file:
+    path: "{{ minecraft_dir }}"
+    state: directory
+    owner: "{{ minecraft_user }}"
+    group: "{{ minecraft_user }}"
+    mode: "0755"
+
+- name: Download Minecraft server JAR
+  ansible.builtin.get_url:
+    url: "https://piston-data.mojang.com/v1/objects/59353fb40c36d304f2035d51e7d6e6baa98dc05c/server.jar"
+    dest: "{{ minecraft_dir }}/{{ minecraft_jar }}"
+    owner: "{{ minecraft_user }}"
+    group: "{{ minecraft_user }}"
+    mode: "0644"
+  # Note: Update the URL/hash when changing minecraft_version
+
+- name: Accept Minecraft EULA
+  ansible.builtin.copy:
+    content: "eula=true\n"
+    dest: "{{ minecraft_dir }}/eula.txt"
+    owner: "{{ minecraft_user }}"
+    group: "{{ minecraft_user }}"
+    mode: "0644"
+
+- name: Deploy server.properties
+  ansible.builtin.template:
+    src: server.properties.j2
+    dest: "{{ minecraft_dir }}/server.properties"
+    owner: "{{ minecraft_user }}"
+    group: "{{ minecraft_user }}"
+    mode: "0644"
+  notify: Restart minecraft
+
+- name: Deploy systemd service unit
+  ansible.builtin.template:
+    src: minecraft.service.j2
+    dest: /etc/systemd/system/minecraft.service
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart minecraft
+
+- name: Enable and start Minecraft service
+  ansible.builtin.systemd:
+    name: minecraft
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Open Minecraft port in firewalld (if active)
+  ansible.posix.firewalld:
+    port: 25565/tcp
+    permanent: true
+    state: enabled
+    immediate: true
+  ignore_errors: true   # firewalld may not be running; the SG covers this
